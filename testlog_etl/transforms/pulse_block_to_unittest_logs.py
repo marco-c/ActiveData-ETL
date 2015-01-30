@@ -60,7 +60,7 @@ def process_pulse_block(source_key, source, dest_bucket):
         file_num = 0
         for name, url in envelope.data.blobber_files.items():
             try:
-                if "structured" in name and name.endswith(".log"):
+                if name.endswith("raw.log"):
                     if url == None:
                         if DEBUG:
                             Log.note("Line {{index}}: found structured log with null nam", {"index": i})
