@@ -91,13 +91,12 @@ class Log(object):
             return
 
         cls.logging_multi = Log_usingMulti()
+        if cls.main_log:
+            cls.main_log.stop()
         cls.main_log = Log_usingThread(cls.logging_multi)
 
         for log in listwrap(settings.log):
             Log.add_log(Log.new_instance(log))
-
-
-
 
     @classmethod
     def stop(cls):
@@ -631,6 +630,7 @@ class Log_usingStream(BaseLog):
 
     def stop(self):
         pass
+
 
 def write_profile(profile_settings, stats):
     from pyLibrary import convert
