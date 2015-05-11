@@ -91,10 +91,10 @@ class Log(object):
             return
 
         cls.logging_multi = Log_usingMulti()
-        if cls.main_log:
-            sys.stdout.write("stopping log")
-            sys.stdout.flush()
-            cls.main_log.stop()
+        # if cls.main_log:
+        #     sys.stdout.write("stopping log")
+        #     sys.stdout.flush()
+        #     cls.main_log.stop()
         cls.main_log = Log_usingThread(cls.logging_multi)
 
         for log in listwrap(settings.log):
