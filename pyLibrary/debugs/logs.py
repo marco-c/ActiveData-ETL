@@ -65,7 +65,7 @@ class Log(object):
         if cls.trace:
             from pyLibrary.thread.threads import Thread
 
-        if settings.cprofile:
+        if settings.cprofile is True or (isinstance(settings.cprofile, dict) and settings.cprofile.enabled):
             if isinstance(settings.cprofile, bool):
                 settings.cprofile = {"enabled": True, "filename": "cprofile.tab"}
 
@@ -74,7 +74,7 @@ class Log(object):
             cls.cprofiler = cProfile.Profile()
             cls.cprofiler.enable()
 
-        if settings.profile:
+        if settings.profile is True or (isinstance(settings.profile, dict) and settings.profile.enabled):
             from pyLibrary.debugs import profiles
 
             if isinstance(settings.profile, bool):
