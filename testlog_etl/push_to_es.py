@@ -21,7 +21,7 @@ from pyLibrary.env import elasticsearch
 from pyLibrary.jsons import scrub
 from pyLibrary.maths import Math
 from pyLibrary.queries import qb
-from pyLibrary.thread.threads import Thread
+from pyLibrary.thread.threads import Thread, Signal
 from pyLibrary.times.timer import Timer
 from testlog_etl.sinks.multi_day_index import MultiDayIndex
 
@@ -105,16 +105,26 @@ def diff(settings, please_stop=None):
     for _ in range(settings.processes):
         work_queue.put("STOP")
 
-    size = work_queue.qsize()
-    while not please_stop and size:
-        Log.note("Remaining: {{num}}", {"num": size})
-        Thread.sleep(seconds=5)
-        size = work_queue.qsize()
+    please_stop = Signal()
 
-    for _ in range(settings.processes):
-        please_stop_queue.put("STOP")
-    for p in processes:
-        p.join()
+    def monitor_progress(please_stop):
+        size = work_queue.qsize()
+        while not please_stop and size:
+            Log.note("Remaining: {{num}}", {"num": size})
+            Thread.sleep(seconds=5)
+            size = work_queue.qsize()
+
+        Log.note("Shutdown started")
+        for _ in processes:
+            please_stop_queue.put("STOP")
+        for p in processes:
+            p.join()
+
+    Thread.run(name="monitor progress", target=monitor_progress)
+
+    Thread.wait_for_shutdown_signal(please_stop=please_stop, allow_exit=True)
+    please_stop.go()
+
 
 
 def get_all_in_es(es):
