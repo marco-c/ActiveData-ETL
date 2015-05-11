@@ -10,6 +10,7 @@ from __future__ import unicode_literals
 from __future__ import division
 from multiprocessing import Process
 from multiprocessing.queues import Queue
+import platform
 
 from pyLibrary import queries
 from pyLibrary.aws import s3
@@ -27,11 +28,12 @@ from testlog_etl.sinks.multi_day_index import MultiDayIndex
 
 # COPY FROM S3 BUCKET TO ELASTICSEARCH
 def copy2es(settings, work_queue, please_stop):
-    # EVERYTHING FROM ELASTICSEARCH
     settings = wrap(settings)
-    constants.set(settings.constants)
-    Log.start(settings.debug)
+    if platform.system()=="Windows":
+        constants.set(settings.constants)
+        Log.start(settings.debug)
 
+    # EVERYTHING FROM ELASTICSEARCH
     es = MultiDayIndex(settings.elasticsearch, queue_size=100000)
     bucket = s3.Bucket(settings.source)
 
