@@ -111,7 +111,7 @@ class Log(object):
         if profiles.ON and hasattr(cls, "settings"):
             profiles.write(cls.settings.profile)
         cls.main_log.stop()
-        cls.main_log = Log_usingStream("sys.stdout")
+        cls.main_log = Log_usingStream(sys.stdout)
 
     @classmethod
     def new_instance(cls, settings):
@@ -135,11 +135,11 @@ class Log(object):
         if settings.log_type == "file" or settings.filename:
             return Log_usingFile(settings.filename)
         if settings.log_type == "console":
-            from .log_usingStream import Log_usingStream
-            return Log_usingStream(sys.stdout)
+            from .log_usingThreadedStream import Log_usingThreadedStream
+            return Log_usingThreadedStream(sys.stdout)
         if settings.log_type == "stream" or settings.stream:
-            from .log_usingStream import Log_usingStream
-            return Log_usingStream(settings.stream)
+            from .log_usingThreadedStream import Log_usingThreadedStream
+            return Log_usingThreadedStream(settings.stream)
         if settings.log_type == "elasticsearch" or settings.stream:
             from .log_usingElasticSearch import Log_usingElasticSearch
             return Log_usingElasticSearch(settings)
@@ -618,6 +618,20 @@ class Log_usingMulti(BaseLog):
                 pass
 
 
+class Log_usingStream(BaseLog):
+    def __init__(self, stream):
+        assert stream
+        self.stream = stream
+
+    def write(self, template, params):
+        value = expand_template(template, params)
+        if isinstance(value, unicode):
+            value = value.encode('utf8')
+        self.stream.write(value)
+
+    def stop(self):
+        pass
+
 def write_profile(profile_settings, stats):
     from pyLibrary import convert
     from pyLibrary.env.files import File
@@ -643,8 +657,8 @@ def write_profile(profile_settings, stats):
 
 
 if not Log.main_log:
-    from log_usingStream import Log_usingStream
+    from log_usingThreadedStream import Log_usingThreadedStream
 
-    Log.main_log = Log_usingStream("sys.stdout")
+    Log.main_log = Log_usingThreadedStream("sys.stdout")
 
 
