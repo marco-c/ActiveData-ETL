@@ -99,7 +99,6 @@ def parse_lcov_coverage(source_key, stream):
             else:
                 print('Unsupported cmd %s with data "%s"' % (cmd, data))
 
-    results = []
     for key, value in sources.iteritems():
         lines_covered = sorted(value['lines_covered'])
 
@@ -126,10 +125,8 @@ def parse_lcov_coverage(source_key, stream):
                 if len(function_lines_covered) > 0:
                     result['methods'][function_name] = function_lines_covered
 
-        results.append(result)
+        yield result
 
-    # print('TOTALS L:%d/%d' % (total_lines_covered, total_lines_covered + total_lines_uncovered))
-    return results
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
