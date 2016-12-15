@@ -14,6 +14,10 @@ Parses an lcov-generated coverage file and converts it to the JSON format used b
 import sys
 import json
 
+from pyLibrary.debugs.logs import Log
+
+from pyLibrary.env.files import File
+
 from pyLibrary.dot import Null
 
 
@@ -28,8 +32,8 @@ def parse_lcov_coverage(source_key, stream):
 
     current_source = None
 
-    total_lines_covered = 0
-    total_lines_uncovered = 0
+    # total_lines_covered = 0
+    # total_lines_uncovered = 0
 
     for line in stream:
         line = line.strip()
@@ -73,10 +77,10 @@ def parse_lcov_coverage(source_key, stream):
 
                 if execution_count > 0:
                     current_source['lines_covered'].add(line_number)
-                    total_lines_covered += 1
+                    # total_lines_covered += 1
                 else:
                     current_source['lines_uncovered'].add(line_number)
-                    total_lines_uncovered += 1
+                    # total_lines_uncovered += 1
             elif cmd == 'FN':
                 split = data.split(',')
                 min_line = int(split[0])
@@ -97,7 +101,7 @@ def parse_lcov_coverage(source_key, stream):
 
                 current_source['functions'][function_name]['execution_count'] = execution_count
             else:
-                print('Unsupported cmd %s with data "%s"' % (cmd, data))
+                Log.warning('Unsupported cmd {{cmd}} with data {{data}}', cmd=cmd, data=data)
 
     for key, value in sources.iteritems():
         lines_covered = sorted(value['lines_covered'])
@@ -135,5 +139,5 @@ if __name__ == '__main__':
 
     file_path = sys.argv[1]
 
-    parsed = parse_lcov_coverage(Null, file_path)
-    json.dump(parsed, sys.stdout)
+    parsed = parse_lcov_coverage(Null, File(file_path))
+    json.dump(list(parsed), sys.stdout)
