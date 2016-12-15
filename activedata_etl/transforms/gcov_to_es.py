@@ -123,15 +123,19 @@ def process_gcda_artifact(source_key, destination, file_etl_gen, task_cluster_re
         ZipFile(gcno_file).extractall('%s/ccov' % tmpdir)
 
         Log.note('Running LCOV on ccov directory')
-        lcov_files = run_lcov_on_directory('%s/ccov' % tmpdir)
+        lcov_files = run_lcov_on_directory('%s/ccov' % tmpdir, file_etl_gen, task_cluster_record)
 
         keys = []
-        for file in lcov_files:
-            file_id, file_etl = file_etl_gen.next(task_cluster_record.etl)
+        for file_id, file_etl, file in lcov_files:
             line_etl_gen = EtlHeadGenerator(file_id)
             with Timer("process {{file}}", param={"file":file.name}):
                 try:
                     records = wrap(parse_lcov_coverage(source_key, file))
+                    for r in records:
+                        process_source_file(file_etl, count, r, task_cluster_record, destination):
+
+
+
                     Log.note('Extracted {{num_records}} records from {{file}}', num_records=len(records), file=file.name)
                 except Exception, e:
                     if "No such file or directory" in e:
@@ -184,7 +188,7 @@ def group_to_gcno_artifacts(group_id):
     return artifacts[0]
 
 
-def run_lcov_on_directory(directory_path):
+def run_lcov_on_directory(directory_path, file_etl_gen, task_cluster_record):
     """
     Runs lcov on a directory.
     :param directory_path:
@@ -193,10 +197,12 @@ def run_lcov_on_directory(directory_path):
     if os.name == 'nt':
         directory = File(directory_path)
         output = Queue("lcov artifacts")
-        children = directory.children
+        children = sorted(directory.children, key=lambda c: c.name)
         locker = Lock()
         expected = [len(children)]
         for subdir in children:
+            file_id, file_etl = file_etl_gen.next(task_cluster_record.etl)
+
             filename = "output." + subdir.name + ".txt"
             linux_source_dir = subdir.abspath.replace(WINDOWS_TEMP_DIR, MSYS2_TEMP_DIR)
             windows_dest_file = File.new_instance(directory, filename)
@@ -227,7 +233,7 @@ def run_lcov_on_directory(directory_path):
                 # shell=True
             ) if ENABLE_LCOV else Null
 
-            def closure_wrap(_dest_file, _proc):
+            def closure_wrap(_file_id, _file_etl, _dest_file, _proc):
                 def is_done():
                     # PROCESS APPEARS TO STOP, BUT IT IS STILL RUNNING
                     # POLL THE FILE UNTIL IT STOPS CHANGING
@@ -240,7 +246,7 @@ def run_lcov_on_directory(directory_path):
                             break
                         Thread.sleep(seconds=expiry - now)
 
-                    output.add(_dest_file)
+                    output.add((_file_id, _file_etl, _dest_file))
                     with locker:
                         expected[0] -= 1
                         Log.note("{{dir}} is done.  REMAINING {{num}}", dir=_dest_file.name, num=expected[0])
@@ -248,7 +254,7 @@ def run_lcov_on_directory(directory_path):
                             output.add(Thread.STOP)
                 Log.note("added proc {{name}} for dir {{dir}}", name=_proc.name, dir=_dest_file.name)
                 _proc.service_stopped.on_go(is_done)
-            closure_wrap(windows_dest_file, proc)
+            closure_wrap(file_id, file_etl, windows_dest_file, proc)
 
         return output
     else:
@@ -256,7 +262,8 @@ def run_lcov_on_directory(directory_path):
 
         proc = Popen(['lcov', '--capture', '--directory', directory_path, '--output-file', '-'], stdout=PIPE, stderr=fdevnull)
         results = parse_lcov_coverage(Null, proc.stdout)
-        return results
+        file_id, file_etl = file_etl_gen.next(task_cluster_record.etl)
+        return [(file_id, file_etl, results)]  # list of just one tuple
 
 
 def download_file(url):
