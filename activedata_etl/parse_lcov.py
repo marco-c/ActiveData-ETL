@@ -17,6 +17,7 @@ from __future__ import unicode_literals
 
 import sys
 import json
+from copy import copy
 
 from activedata_etl.imports.cxx_demangler import demangle
 from pyLibrary import convert
@@ -67,6 +68,8 @@ def parse_lcov_coverage(source_key, test_suite, stream):
     while(True):
         record = Dict(test={"suite": test_suite})
         methods = Dict()
+        all_covered = set()
+        all_uncovered = set()
 
         for line in stream:
             line = unicode(line.strip())
@@ -95,9 +98,9 @@ def parse_lcov_coverage(source_key, test_suite, stream):
                 line_number, execution_count = data.split(',')
 
                 if execution_count == '0':
-                    record.source.file.uncovered += [int(line_number)]
+                    all_uncovered.add(int(line_number))
                 else:
-                    record.source.file.covered += [int(line_number)]
+                    all_covered.add(int(line_number))
             elif cmd == 'FN':
                 first_line, function_name = data.split(',')
                 name, params, sig = demangle(function_name)
@@ -115,14 +118,8 @@ def parse_lcov_coverage(source_key, test_suite, stream):
             else:
                 Log.warning('Unsupported cmd {{cmd}} with data {{data}}', cmd=cmd, data=data)
 
-        all_covered = set(record.source.file.covered)
-        all_uncovered = set(record.source.file.uncovered)
-        remaining_covered = all_covered
-
-        record.source.file.covered = [{"line":l} for l in sorted(all_covered)]
-        record.source.file.uncovered = sorted(all_uncovered)
-        record.source.file.total_covered = len(all_covered)
-        record.source.file.total_uncovered = len(all_uncovered)
+        remaining_covered = copy(all_covered)
+        remaining_uncovered = copy(all_uncovered)
 
         max_line = Math.MAX([Math.MAX(all_covered), Math.MAX(all_uncovered)]) + 1
         sorted_methods = jx.sort(methods.values(), "first_line") + [{"first_line": max_line}]
@@ -130,11 +127,12 @@ def parse_lcov_coverage(source_key, test_suite, stream):
             method_info.last_line = sorted_methods[i + 1].first_line
             all_method_lines = set(range(method_info.first_line, method_info.last_line))
             remaining_covered -= all_method_lines
+            remaining_uncovered -= all_method_lines
             method_info.covered = [{"line": l} for l in sorted(all_covered & all_method_lines)]
             method_info.uncovered = sorted(all_uncovered & all_method_lines)
             method_info.total_covered = len(method_info.covered)
             method_info.total_uncovered = len(method_info.uncovered)
-            if method_info.total_covered + method_info.total_uncovered:
+            if method_info.total_covered:
                 method_info.percentage_covered = method_info.total_covered / (method_info.total_covered + method_info.total_uncovered)
             else:
                 method_info.percentage_covered = 0.0
@@ -142,6 +140,12 @@ def parse_lcov_coverage(source_key, test_suite, stream):
 
         if remaining_covered:
             Log.error("not expected")
+
+        record.source.method.covered = [{"line": l} for l in sorted(remaining_covered)]
+        record.source.method.uncovered = sorted(remaining_uncovered)
+        record.source.method.total_covered = len(remaining_covered)
+        record.source.method.total_uncovered = len(remaining_uncovered)
+        record.source.method.percentage_covered = 0
 
         yield record  # HAS NO METHOD
 

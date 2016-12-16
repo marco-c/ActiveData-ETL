@@ -49,7 +49,7 @@ def demangle_sig(sig, namespace):
         return "()"
 
     i = 0
-    output = ["("]
+    output = []
     modifiers = ""
     prefix = ""
     while i < len(sig):
@@ -76,8 +76,7 @@ def demangle_sig(sig, namespace):
             i += length
         else:
             Log.error("Can not recognize type {{type|quote}}", type=c)
-    output.append(")")
-    return "".join(output)
+    return "(" + ",".join(output) + ")"
 
 
 MODIFIERS = {
